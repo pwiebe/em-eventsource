@@ -118,7 +118,7 @@ module EventMachine
       @req.stream do |chunk|
         buffer += chunk
         # TODO: manage \r, \r\n, \n
-        while index = buffer.index("\n\n")
+        while index = (buffer.index("\n\n") || buffer.index("\r\n"))
           stream = buffer.slice!(0..index)
           handle_stream(stream)
         end

@@ -34,10 +34,11 @@ module EventMachine
     # url - the url as string
     # query - the query string as hash
     # headers - the headers for the request as hash
-    def initialize(url, query={}, headers={})
+    def initialize(url, query={}, body = nil, headers={})
       @url = url
       @query = query
       @headers = headers
+      @body = body
       @ready_state = CLOSED
 
       @last_event_id = nil
@@ -128,7 +129,7 @@ module EventMachine
     def handle_reconnect(*args)
       return if @ready_state == CLOSED
       @ready_state = CONNECTING
-      @errors.each { |error| error.call("Connection lost. Reconnecting.") }
+      @errors.each { |error| error.call({status: :reconnecting, msg: "Connection lost. Reconnecting."}) }
       EM.add_timer(@retry) do
         listen
       end
@@ -137,7 +138,7 @@ module EventMachine
     def handle_headers(headers)
       if headers.status != 200
         close
-        @errors.each { |error| error.call("Unexpected response status #{headers.status}") }
+        @errors.each { |error| error.call({status: headers.status, msg:"Unexpected response status #{headers.status}:#{headers.class} conn: #{@conn.class} req: #{@req.response}"}) }
         return
       end
       if /^text\/event-stream/.match headers['CONTENT_TYPE']
@@ -145,7 +146,7 @@ module EventMachine
         @opens.each { |open| open.call }
       else
         close
-        @errors.each { |error| error.call("The content-type '#{headers['CONTENT_TYPE']}' is not text/event-stream") }
+        @errors.each { |error| error.call({status: :error, msg: "The content-type '#{headers['CONTENT_TYPE']}' is not text/event-stream"}) }
       end
     end
 
